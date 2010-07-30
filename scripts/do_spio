@@ -1,0 +1,207 @@
+#!/bin/bash
+########################################################################
+#
+#  This work contains valuable confidential and proprietary information.
+#  Disclosure, use or reproduction without the written authorization of
+#  the  DoD HPCMO is prohibited.  This unpublished work by the DoD HPCMO
+#  is protected by the laws of the United States and other countries.
+#
+#  do_spio
+#
+#  Run Script for spiobench tests
+#
+########################################################################
+#
+set -x
+
+#
+# ZEST variables
+#
+# ultimate zestion server ID
+export ZEST_SERVER_NID="10.10.101.83@tcp1" # orange
+#export ZEST_SERVER_NID="10.10.101.84@tcp1:998,10.10.101.184@tcp1:999,10.10.101.185@tcp1:1000,10.10.101.186@tcp1:1001" # citron, multi
+
+export TCPNAL_PORT=998
+export TCPLND_USESDP=1
+
+# routing & network info
+#export LNET_NETWORKS="ptl1" LNET_ROUTES="tcp1 3@ptl1"                     # routing via YR (node 3)
+#export LNET_NETWORKS="ptl0" LNET_ROUTES="tcp1 [2560]@ptl0"                # routing via BB (1 SIO node)
+#export LNET_NETWORKS="ptl0" LNET_ROUTES="tcp1 [2560,2563,2568,2571]@ptl0" # routing via BB SIO nodes
+#export LNET_NETWORKS="ptl0" LNET_ROUTES="o2ib [2560,2568,2571,2572,2575]@ptl0"  # for Lustre
+#export LNET_NETWORKS="ptl0" LNET_ROUTES="tcp1 [2560,2568,2571,2572,2575]@ptl0"  # for ZEST
+export LNET_NETWORKS="tcp1(ib0)"
+
+# logging stuff
+export ZEST_ITIME=0
+export ZEST_LOG_LEVEL=2
+
+
+# ZEST mode
+SCRATCH_DIR=/zest/bessemer/nstone
+# Lustre from Orange
+#SCRATCH_DIR=/orange/nstone
+# local scratch
+#SCRATCH_DIR=/lustre/nstone
+
+#BIN=/home/nstone/benchmark/mpi_hello_world
+BIN=~/zest/apps/spiobench/spio
+#
+#	set SYSTYP
+#	it should be AIX, OSF1, UNICOS/mp, SunOS
+#
+SYSTYP=`uname`
+#
+#	default cpu counts
+#
+#CPU_COUNT='16 32 48 64 128 256 384 512'
+CPU_COUNT='32'
+#
+if [ $# -gt 0 ] ; then
+	CPU_COUNT=$@
+fi
+#
+# 	make sure we have a results directory
+#
+if [ ! -d ./results ] ; then
+	mkdir ./results
+fi
+#
+#	gather some system info
+#
+if [ -x scripts/gather_system_info ] ; then
+	./scripts/gather_system_info results
+fi
+#
+#	let the testing begin
+#
+for COUNT in $CPU_COUNT
+do
+	case $COUNT in
+	  16)
+		export SCRATCH_FILES=$SCRATCH_DIR/dodbench_file.0016.
+		export FILE_SIZE=8192m
+		export BLOCK_SIZE=196608
+		export OUTPUT_FILE=results/spio_0016.out
+		;;
+	  32)
+		export SCRATCH_FILES=$SCRATCH_DIR/dodbench_file.0032.
+		export FILE_SIZE=4096m
+		export BLOCK_SIZE=196608
+		export OUTPUT_FILE=results/spio_0032.out
+		;;
+	  48)
+		export SCRATCH_FILES=$SCRATCH_DIR/dodbench_file.0048.
+		export FILE_SIZE=2731m
+		export BLOCK_SIZE=196608
+		export OUTPUT_FILE=results/spio_0048.out
+		;;
+	  64)
+		export SCRATCH_FILES=$SCRATCH_DIR/dodbench_file.0064.
+		export FILE_SIZE=2048m
+		export BLOCK_SIZE=196608
+		export OUTPUT_FILE=results/spio_0064.out
+		;;
+	  128)
+		export SCRATCH_FILES=$SCRATCH_DIR/dodbench_file.0128.
+		export FILE_SIZE=1024m
+		export BLOCK_SIZE=196608
+		export OUTPUT_FILE=results/spio_0128.out
+		;;
+	  256)
+		export SCRATCH_FILES=$SCRATCH_DIR/dodbench_file.0256.
+		export FILE_SIZE=512m
+		export BLOCK_SIZE=196608
+		export OUTPUT_FILE=results/spio_0256.out
+		;;
+	  384)
+		export SCRATCH_FILES=$SCRATCH_DIR/dodbench_file.0384.
+		export FILE_SIZE=341m
+		export BLOCK_SIZE=196608
+		export OUTPUT_FILE=results/spio_0384.out
+		;;
+	  512)
+		export SCRATCH_FILES=$SCRATCH_DIR/dodbench_file.0512.
+		export FILE_SIZE=256m
+		export BLOCK_SIZE=196608
+		export OUTPUT_FILE=results/spio_0512.out
+		;;
+	  *)
+                export SCRATCH_FILES=$SCRATCH_DIR/dodbench_file.0001.
+		export FILE_SIZE=1g
+		export BLOCK_SIZE=1m
+		export OUTPUT_FILE=results/spio_0001.out
+		;;
+	esac
+
+case $SYSTYP in
+	AIX)
+		rm -f ${SCRATCH_FILES}????
+		poe $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 0 $SCRATCH_DIR/dodbench_file -procs $COUNT -labelio yes  >$OUTPUT_FILE
+		poe $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 1 $SCRATCH_DIR/dodbench_file -procs $COUNT -labelio yes >>$OUTPUT_FILE
+		poe $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 1 $SCRATCH_DIR/dodbench_file -procs $COUNT -labelio yes >>$OUTPUT_FILE
+		poe $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 2 $SCRATCH_DIR/dodbench_file -procs $COUNT -labelio yes >>$OUTPUT_FILE
+		poe $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 2 $SCRATCH_DIR/dodbench_file -procs $COUNT -labelio yes >>$OUTPUT_FILE
+		poe $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 3 $SCRATCH_DIR/dodbench_file -procs $COUNT -labelio yes >>$OUTPUT_FILE
+		poe $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 3 $SCRATCH_DIR/dodbench_file -procs $COUNT -labelio yes >>$OUTPUT_FILE
+		rm -f ${SCRATCH_FILES}????
+		;;
+	OSF1)
+		rm -f ${SCRATCH_FILES}????
+		/usr/bin/prun -n $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 0 $SCRATCH_DIR/dodbench_file  >$OUTPUT_FILE
+		/usr/bin/prun -n $COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 1 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		/usr/bin/prun -n $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 1 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		/usr/bin/prun -n $COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 2 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		/usr/bin/prun -n $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 2 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		/usr/bin/prun -n $COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 3 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		/usr/bin/prun -n $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 3 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		rm -f ${SCRATCH_FILES}????
+		;;
+	UNICOS/mp)
+		rm -f ${SCRATCH_FILES}????
+		aprun -n $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 0 $SCRATCH_DIR/dodbench_file  >$OUTPUT_FILE
+		aprun -n $COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 1 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		aprun -n $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 1 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		aprun -n $COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 2 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		aprun -n $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 2 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		aprun -n $COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 3 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		aprun -n $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 3 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		rm -f ${SCRATCH_FILES}????
+		;;
+	SunOS)
+		rm -f ${SCRATCH_FILES}????
+		/opt/SUNWhpc/bin/mprun -np $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 0 $SCRATCH_DIR/dodbench_file  >$OUTPUT_FILE
+		/opt/SUNWhpc/bin/mprun -np $COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 1 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		/opt/SUNWhpc/bin/mprun -np $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 1 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		/opt/SUNWhpc/bin/mprun -np $COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 2 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		/opt/SUNWhpc/bin/mprun -np $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 2 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		/opt/SUNWhpc/bin/mprun -np $COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 3 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		/opt/SUNWhpc/bin/mprun -np $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 3 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		rm -f ${SCRATCH_FILES}????
+		;;
+         Linux)
+		rm -f ${SCRATCH_FILES}????
+#		mpirun -machinefile /home/nstone/12osts -np $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 0 $SCRATCH_DIR/dodbench_file
+		mpirun -np $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 0 $SCRATCH_DIR/dodbench_file 2>/dev/null
+#  >$OUTPUT_FILE.$COUNT
+#		pbsyod -sz=$COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 1 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+#		pbsyod -sz=$COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 1 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+#		pbsyod -sz=$COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 2 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+#		pbsyod -sz=$COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 2 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+#		pbsyod -sz=$COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 3 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+#		pbsyod -sz=$COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 3 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		rm -f ${SCRATCH_FILES}????
+		;;
+	*)
+		rm -f ${SCRATCH_FILES}????
+		mpirun -np $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 0 $SCRATCH_DIR/dodbench_file  >$OUTPUT_FILE
+		mpirun -np $COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 1 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		mpirun -np $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 1 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		mpirun -np $COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 2 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		mpirun -np $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 2 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		mpirun -np $COUNT $BIN -i sr -s $FILE_SIZE -b $BLOCK_SIZE -n 3 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		mpirun -np $COUNT $BIN -i sw -s $FILE_SIZE -b $BLOCK_SIZE -n 3 $SCRATCH_DIR/dodbench_file >>$OUTPUT_FILE
+		rm -f ${SCRATCH_FILES}????
+		;;
+	esac
+done

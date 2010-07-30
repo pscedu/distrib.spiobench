@@ -1,0 +1,3 @@
+lamboot -v ~/etc/bhost.def -c ~/etc/lam-conf.lamd 
+./scripts/do_spio
+lamwipe ~/etc/bhost.def

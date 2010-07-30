@@ -1,0 +1,110 @@
+--------------------------------------------------------------------------------
+Department of Defense
+High Performance Computing Modernization Program Office
+
+TI-06 Benchmarking
+Streaming Parallel I/O Benchmark ( SPIOBENCH ) Operational ReadMe
+
+mpt  05/05
+--------------------------------------------------------------------------------
+Please review the TI-06 Benchmarking Test Description and Rules documentation 
+for test descriptions, system configuration, operational, and submission 
+guidelines.
+--------------------------------------------------------------------------------
+
+Description:
+   The Streaming Parallel I/O test measures the maximum I/O performance of the 
+   system for streaming applications.
+
+Preface:
+   This test must have a shared file system with a minimum of 160 GB of space
+   available.
+
+src/spio.c:
+   1. If the platform does not support the valloc (page aligned allocation) call 
+      then change the call to malloc.
+
+   2. If large file, files > 2 GB, support is not inherent
+      the O_LARGEFILE flag may have to be inserted into the open(2)statements.
+      No other changes are allowed to open.
+
+Build Instructions:
+
+1. Tar extraction of "spiobench.tar.gz" created the "spiobench" directory.
+   "cd" to the "spiobench" directory.
+
+Makefile:
+
+2. To make SPIOBENCH, do the following:
+
+*** for ZEST tests:
+   Use the makefile "Makefile.nosys"
+*** for "local" execution only:
+   Use the makefile "Makefile".
+
+   Review "Makefile" for proper compiler flag settings. 
+   Example compile options are included in the makefile.  
+
+   Uncomment the appropriate section of compiler flags, or if none are 
+   appropriate for the target machine add an appropriate section in the same
+   style as the others.
+
+   Vendors must specify the appropriate libraries during the build process.
+   The makefile contains a list of general libraries that may or maynot be used 
+   for any individual test.  Please carefully check the build for unresolved 
+   external references.
+
+   Make certain the selections used for the final results are appropriate and
+   effective.
+
+3. Make sure that the proper flags for compiling in 64-bit mode are present 
+   if necessary.
+
+   Type:  "make"
+   (If you have GNUmake, 
+       modify compiler flags in cmplrflags.mk,
+       type: 'gmake all' )
+
+   Use of compiler options and environment variables must be documented and 
+   explained in the TI06_benchmark_compiler_flags.xls Excel spreadsheet.
+   Selection of the best compiler and linker options is strongly encouraged.
+
+Execution Instructions:
+
+1. Modify the run script:
+   Edit the script to create the scratch file directory in a large shared
+   file system. (SCRATCH_DIR)
+
+   One script is provided to run the SPIOBENCH benchmark.
+
+      do_spio - runs the spio benchmark
+
+   The test is run at 16, 32, 48, 64 128, 256, 384 and 512 processors.
+
+*** for ZEST tests:
+   Make sure that SCRATCH_DIR starts with "/zest/"
+   ... other ENV variables have been set accordingly
+
+2. The script is executed from the spiobench directory.
+
+      ./scripts/do_spio
+         or
+      ./scripts/do_spio 16 32 48 64 128 256 384 512
+
+   The tests should be run on as many processor counts as possible.
+
+3. Runtime for spiobench is determined by your i/o system's bandwidth and 
+   performance. An average runtime of 5 to 15 minutes per cpu count is
+   normal.
+
+Results:
+
+1. Results can be viewed in the directory "spiobench/results".
+
+2. Tar the entire spiobench directory with the command: "make tar".
+   The tar file "spiobench_results.tar" is created in the "synth6" parent 
+   directory with all of the results, source code, run scripts, and makefiles
+   used to build the tested benchmark.
+
+   Return the "spiobench_results.tar" file as the deliverable for SPIOBENCH.
+

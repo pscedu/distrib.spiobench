@@ -1,0 +1,163 @@
+#!/bin/ksh
+#
+#	gather_system_info
+#
+#set -x
+#
+GSI_HOSTNAME="undefined"
+GSI_MACHINE="undefined"
+GSI_NODENAME="undefined"
+GSI_PROCESSOR="undefined"
+GSI_OS_RELEASE="undefined"
+GSI_OS_NAME="undefined"
+GSI_OS_VERSION="undefined"
+GSI_SYS_CMD="undefined"
+GSI_FORTRAN_CMD="undefined"
+GSI_CC_CMD="undefined"
+PATH="$PATH:/usr/sbin:/sbin"
+#
+DATE=`date +%Y%m%d%H%M%S`
+#should do = rather than -eq as -eq is numeric evaluation only
+if [ "$1" = "" ] ; then
+
+	CDIR=.
+else
+	CDIR=$1
+fi
+INFO=${CDIR}/system.${DATE}.info	; export INFO
+INFO_SYSTEM=${CDIR}/system.${DATE}.info.sys	; export INFO_SYSTEM
+INFO_FORTRAN=${CDIR}/system.${DATE}.info.for	; export INFO_FORTRAN
+INFO_CC=${CDIR}/system.${DATE}.info.cc	; export INFO_CC
+#rm ${INFO} ${INFO_SYSTEM} ${INFO_FORTRAN} ${INFO_CC}
+#check to see if file exists before removing it
+if [ -f ${INFO} ] ; then
+rm ${INFO}
+fi
+
+if [ -f ${INFO_SYSTEM} ] ; then
+rm ${INFO_SYSTEM}
+fi
+
+if [ -f ${INFO_FORTRAN} ] ; then
+rm ${INFO_FORTRAN}
+fi
+
+if [ -f ${INFO_CC} ] ; then
+rm ${INFO_CC}
+fi
+
+#
+GSI_HOSTNAME=`hostname`
+GSI_MACHINE=`uname -m`
+GSI_NODENAME=`uname -n`
+GSI_OS_RELEASE=`uname -r`
+GSI_OS_NAME=`uname -s`
+GSI_OS_VERSION=`uname -v`
+GSI_OS=`uname -s`
+case ${GSI_OS} in
+	AIX )		SYSTEM=AIX;;
+	IRIX64 )	SYSTEM=IRIX64;;
+	OSF1 )		SYSTEM=OSF1;;
+	SunOS )		SYSTEM=SunOS;;
+	sn6705 )	SYSTEM=unicos;;
+	unicos )	SYSTEM=unicos;;
+	UNICOS/mp )	SYSTEM=UNICOS/mp;;
+	* )		SYSTEM=unknown;;
+esac
+
+if [ "${SYSTEM}" = "AIX" ] ; then
+	GSI_SYS_CMD="lscfg -pv"
+	${GSI_SYS_CMD} >${INFO_SYSTEM}
+	GSI_FORTRAN_CMD="lslpp -L -q xlfcmp"
+	${GSI_FORTRAN_CMD} 2>&1 | head -1 >${INFO_FORTRAN}
+	GSI_CC_CMD="lslpp -L -q vac.C"
+	${GSI_CC_CMD} 2>&1 | head -1 >${INFO_CC}
+elif [ "${SYSTEM}" = "IRIX64" ] ; then
+	GSI_SYS_CMD="sysconf ; hinv"
+	hinv >${INFO_SYSTEM}
+	sysconf >>${INFO_SYSTEM}
+	GSI_FORTRAN_CMD="f90 -version"
+	${GSI_FORTRAN_CMD} 2>&1 | head -1 >${INFO_FORTRAN}
+	GSI_CC_CMD="cc -version"
+	${GSI_CC_CMD} 2>&1 | head -1 >${INFO_CC}
+elif [ "${SYSTEM}" = "OSF1" ] ; then
+        GSI_PROCESSOR=`uname -p`
+	GSI_SYS_CMD="unavailable"
+	echo ${GSI_SYS_CMD} >${INFO_SYSTEM}
+	GSI_FORTRAN_CMD="f90 -what"
+	${GSI_FORTRAN_CMD} 2>&1 | head -2 >${INFO_FORTRAN}
+	GSI_CC_CMD="cc -V"
+	${GSI_CC_CMD} 2>&1 | head -2 >${INFO_CC}
+elif [ "${SYSTEM}" = "SunOS" ] ; then
+        GSI_PROCESSOR=`uname -p`
+        GSI_SYS_CMD="uname -X ; prtconf"
+	uname -X | tr "<>" "\[\]" >${INFO_SYSTEM}
+	prtconf | tr "<>" "\[\]" >>${INFO_SYSTEM}
+	GSI_FORTRAN_CMD="f95 -V"
+	${GSI_FORTRAN_CMD} 2>&1 | head -1 >${INFO_FORTRAN}
+	GSI_CC_CMD="cc -V"
+	${GSI_CC_CMD} 2>&1 | head -1 >${INFO_CC}
+elif [ "${SYSTEM}" = "unicos" ] ; then
+        GSI_OS_NAME=unicos
+        GSI_SYS_CMD="sysconf"
+	${GSI_SYS_CMD} | tr "<>" "\[\]" >${INFO_SYSTEM}
+	GSI_FORTRAN_CMD="f90 -V"
+	${GSI_FORTRAN_CMD} 2>${INFO_FORTRAN}
+	GSI_CC_CMD="cc -V"
+	${GSI_CC_CMD} 2>${INFO_CC}
+elif [ "${SYSTEM}" = "UNICOS/mp" ] ; then
+        GSI_SYS_CMD="/usr/sbin/snflv -v ; /sbin/hinv"
+	/usr/sbin/snflv -v | tr "<>" "\[\]" >${INFO_SYSTEM}
+	/sbin/hinv | tr "<>" "\[\]" >>${INFO_SYSTEM}
+	GSI_FORTRAN_CMD="ftn -V"
+	${GSI_FORTRAN_CMD} 2>${INFO_FORTRAN}
+	GSI_CC_CMD="cc -V"
+	${GSI_CC_CMD} 2>${INFO_CC}
+elif [ "${SYSTEM}" = "unknown" ] ; then
+	GSI_SYS_CMD="unavailable"
+	echo ${GSI_SYS_CMD} >${INFO_SYSTEM}
+	GSI_FORTRAN_CMD="unavailable"
+	echo ${GSI_FORTRAN_CMD} >${INFO_FORTRAN}
+	GSI_CC_CMD="unavailable"
+	echo ${GSI_CC_CMD} >${INFO_CC}
+fi
+#
+cat >${INFO} <<EOF
+\$tstDescript{"run_date"} = "`date +"%Y%m%d%H%M%S"`";
+\$tstDescript{"hostname"} = "${GSI_HOSTNAME}";
+\$tstDescript{"machine"} = "${GSI_MACHINE}";
+\$tstDescript{"nodename"} = "${GSI_NODENAME}";
+\$tstDescript{"processor"} = "${GSI_PROCESSOR}";
+\$tstDescript{"os_name"} = "${GSI_OS_NAME}";
+\$tstDescript{"os_release"} = "${GSI_OS_RELEASE}";
+\$tstDescript{"os_version"} = "${GSI_OS_VERSION}";
+\$tstDescript{"sys_cmd"} = "${GSI_SYS_CMD}";
+\$tstDescript{"fortran_cmd"} = "${GSI_FORTRAN_CMD}";
+\$tstDescript{"cc_cmd"} = "${GSI_CC_CMD}";
+EOF
+line=0
+cat ${INFO_SYSTEM} | sed 's/"/\\\"/' |
+	while read theline
+		do
+			echo "\$tstSysDescript[" ${line} "] = \"${theline}\";" >>${INFO}
+			line=$(($line+1))
+		done
+line=0
+cat ${INFO_FORTRAN} | sed 's/"/\\\"/' |
+	while read theline
+		do
+			echo "\$tstFortranDescript[" ${line} "] = \"${theline}\";" >>${INFO}
+			line=$(($line+1))
+		done
+line=0
+cat ${INFO_CC} | sed 's/"/\\\"/' |
+	while read theline
+		do
+			echo "\$tstCCDescript[" ${line} "] = \"${theline}\";" >>${INFO}
+			line=$(($line+1))
+		done
+#
+rm ${INFO_SYSTEM} ${INFO_FORTRAN} ${INFO_CC}
+#
+#cat ${INFO}
+#mailx -s `hostname` mpt@instrumental.com < ${INFO}
